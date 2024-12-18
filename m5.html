@@ -1,0 +1,738 @@
+<html><head><base href="/" /><title>Gráfico de Velas Melhorado</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<style>
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #f4f4f9;
+}
+canvas {
+    display: block;
+    border: 1px solid #000;
+    background: #fff;
+    cursor: crosshair;
+}
+#chart-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+#countdown {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 18px;
+    font-family: Arial, sans-serif;
+    color: #333;
+}
+#mouse-line {
+    position: absolute;
+    width: 100%;
+    height: 1px;
+    background-color: rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+}
+#price-label {
+    position: absolute;
+    left: 10px;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+}
+#logo-container {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+.logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+}
+.symbol-container {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 10px 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+.symbol-name {
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    font-size: 18px;
+    color: #333;
+    margin: 0;
+}
+.otc {
+    color: #ff0000;
+    font-weight: bold;
+}
+.percentage {
+    font-family: Arial, sans-serif;
+    color: #4CAF50;
+    font-size: 16px;
+    margin: 5px 0 0 0;
+}
+#scroll-to-current {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    display: none;
+    justify-content: center;
+    align-items: center;
+}
+#scroll-to-current:hover {
+    background-color: rgba(255, 255, 255, 1);
+}
+
+/* New styles for indicator menu */
+#indicator-menu {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    background-color: #ffffff;
+    padding: 8px;
+    border-radius: 50%;
+    width: 35px;
+    height: 35px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.resizable-rectangle {
+    position: absolute;
+    border: 2px solid purple;
+    background-color: rgba(128, 0, 128, 0.1);
+    min-width: 50px;
+    min-height: 50px;
+    cursor: move;
+}
+
+.resize-handle {
+    width: 10px;
+    height: 10px;
+    background-color: white;
+    border: 2px solid purple;
+    position: absolute;
+}
+
+.resize-handle.nw { cursor: nw-resize; top: -5px; left: -5px; }
+.resize-handle.ne { cursor: ne-resize; top: -5px; right: -5px; }
+.resize-handle.sw { cursor: sw-resize; bottom: -5px; left: -5px; }
+.resize-handle.se { cursor: se-resize; bottom: -5px; right: -5px; }
+.menu-options {
+    position: absolute;
+    bottom: 70px;
+    left: 20px;
+    background-color: #ffffff;
+    border-radius: 12px;
+    padding: 8px;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.menu-button {
+    background-color: #f8f9fa;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    color: #333;
+    transition: all 0.2s ease;
+}
+
+.menu-button:hover {
+    background-color: #e9ecef;
+}
+
+#percentage-bar-container {
+    position: absolute;
+    left: 20px;
+    top: 100px;
+    height: 300px;
+    width: 2px; /* Even thinner */
+    background: #f5f5f5;
+    border-radius: 2px;
+    overflow: hidden;
+    box-shadow: none; /* Remove shadow for cleaner look */
+}
+
+#percentage-bar {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    transition: height 0.5s ease, background-color 0.5s ease;
+}
+
+.percentage-label {
+    position: absolute;
+    left: 12px;
+    transform: translateY(-50%);
+    font-family: Arial, sans-serif;
+    font-size: 11px;
+    padding: 2px 4px;
+    border-radius: 2px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+#green-percentage {
+    top: -20px;
+}
+
+#red-percentage {
+    bottom: -20px;
+}
+</style>
+</head>
+<body>
+<div id="chart-container">
+    <div id="logo-container">
+        <svg class="logo" viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="20" fill="#2962ff"/>
+            <text x="20" y="25" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="14">€/$</text>
+        </svg>
+        <div class="symbol-container">
+            <p class="symbol-name">EUR/USD <span class="otc">OTC</span></p>
+            <p class="percentage">90%</p>
+        </div>
+    </div>
+    <canvas id="chart"></canvas>
+    <div id="mouse-line"></div>
+    <div id="countdown">Tempo restante: 00:00</div>
+    <div id="price-label"></div>
+    <button id="scroll-to-current">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 18l6-6-6-6"/>
+        </svg>
+    </button>
+</div>
+
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyBMU5SAXrH4pTyguXZs95ItvLc_BRGeeHw",
+    authDomain: "grafico-eurusd.firebaseapp.com",
+    databaseURL: "https://grafico-eurusd-default-rtdb.firebaseio.com",
+    projectId: "grafico-eurusd",
+    storageBucket: "grafico-eurusd.appspot.com",
+    messagingSenderId: "180042823288",
+    appId: "1:180042823288:web:5b768416d0077df2891f8d"
+};
+
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+</script>
+
+<script>
+const canvas = document.getElementById('chart');
+const ctx = canvas.getContext('2d');
+const countdownElement = document.getElementById('countdown');
+const mouseLine = document.getElementById('mouse-line');
+const priceLabel = document.getElementById('price-label');
+const scrollToCurrentButton = document.getElementById('scroll-to-current');
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let candles = [];
+let currentCandle = null;
+let currentPrice = 200;
+
+let candleWidth = 10;
+let candleGap = 2;
+let zoomLevel = 1;
+let scrollOffsetX = 0;
+let scrollOffsetY = 0;
+let mouseX = 0;
+let mouseY = 0;
+let isDragging = false;
+let dragStartX = 0;
+let dragStartY = 0;
+let scrollStartOffsetX = 0;
+let scrollStartOffsetY = 0;
+
+const candleDuration = 300000;
+const gridSize = 50;
+
+function checkScrollPosition() {
+    const totalCandles = candles.length;
+    const viewableCandles = Math.floor(canvas.width / ((candleWidth + candleGap) * zoomLevel));
+    const maxScroll = Math.max(0, totalCandles - viewableCandles);
+    
+    if (scrollOffsetX > 0) {
+        scrollToCurrentButton.style.display = 'flex';
+    } else {
+        scrollToCurrentButton.style.display = 'none';
+    }
+}
+
+scrollToCurrentButton.addEventListener('click', () => {
+    const totalCandles = candles.length;
+    if (totalCandles > 0) {
+        scrollOffsetX = Math.max(0, totalCandles - Math.floor(canvas.width / ((candleWidth + candleGap) * zoomLevel)));
+        renderChart();
+    }
+});
+
+function drawGrid() {
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(200, 200, 200, 0.3)';
+    ctx.lineWidth = 1;
+
+    for (let x = 0; x < canvas.width; x += gridSize) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+    }
+
+    for (let y = 0; y < canvas.height; y += gridSize) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+    }
+
+    ctx.stroke();
+}
+
+canvas.addEventListener('mousemove', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    mouseX = event.clientX - rect.left;
+    mouseY = event.clientY - rect.top;
+    mouseLine.style.top = `${mouseY}px`;
+
+    if (isDragging) {
+        const deltaX = (event.clientX - dragStartX) / (candleWidth + candleGap);
+        const deltaY = (event.clientY - dragStartY) / 10;
+        scrollOffsetX = scrollStartOffsetX - deltaX / zoomLevel;
+        scrollOffsetY = scrollStartOffsetY - deltaY / zoomLevel;
+        scrollOffsetX = Math.max(0, scrollOffsetX);
+        renderChart();
+        checkScrollPosition();
+    }
+});
+
+function loadCandles() {
+    database.ref('candles').once('value', (snapshot) => {
+        candles = [];
+        snapshot.forEach((child) => {
+            candles.push(child.val());
+        });
+        startCandle();
+    });
+}
+
+function startCandle() {
+    const basePrice = candles.length > 0 ? candles[candles.length - 1].close : currentPrice;
+    currentCandle = {
+        open: basePrice,
+        close: basePrice,
+        high: basePrice,
+        low: basePrice,
+        startTime: Date.now()
+    };
+
+    const interval = setInterval(() => {
+        const elapsed = Date.now() - currentCandle.startTime;
+        const remainingTime = Math.max(candleDuration - elapsed, 0);
+        
+        const minutes = Math.floor(remainingTime / 60000);
+        const seconds = Math.floor((remainingTime % 60000) / 1000);
+        countdownElement.textContent = `Tempo restante: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+
+        if (remainingTime <= 0) {
+            clearInterval(interval);
+            candles.push(currentCandle);
+            database.ref('candles').push(currentCandle);
+            currentCandle = null;
+            startCandle();
+        } else {
+            const newPrice = currentCandle.close + (Math.random() - 0.5) * 5;
+            currentCandle.close = newPrice;
+            currentCandle.high = Math.max(currentCandle.high, newPrice);
+            currentCandle.low = Math.min(currentCandle.low, newPrice);
+            renderChart();
+        }
+    }, 100);
+}
+
+function renderChart() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawGrid();
+
+    const totalCandles = candles.length;
+    const viewableCandles = Math.floor(canvas.width / ((candleWidth + candleGap) * zoomLevel));
+    const startIndex = Math.max(0, Math.floor(scrollOffsetX));
+    const endIndex = Math.min(totalCandles, startIndex + viewableCandles);
+
+    for (let i = startIndex; i < endIndex; i++) {
+        const x = (i - startIndex) * (candleWidth + candleGap) * zoomLevel;
+        drawCandle(candles[i], x, scrollOffsetY);
+    }
+
+    if (currentCandle) {
+        const x = (endIndex - startIndex) * (candleWidth + candleGap) * zoomLevel;
+        drawCandle(currentCandle, x, scrollOffsetY);
+        
+        // Fix the dotted vertical line position and style
+        const verticalLineX = x + (candleWidth * zoomLevel / 2);
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.setLineDash([5, 5]);
+        ctx.lineWidth = 1;
+        ctx.moveTo(verticalLineX, 0);
+        ctx.lineTo(verticalLineX, canvas.height);
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset line style
+
+        // Current price horizontal line
+        const currentY = canvas.height - currentCandle.close - scrollOffsetY;
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.setLineDash([5, 5]);
+        ctx.moveTo(0, currentY);
+        ctx.lineTo(canvas.width, currentY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Update price label position
+        priceLabel.style.top = `${currentY}px`;
+        priceLabel.textContent = currentCandle.close.toFixed(2);
+    }
+    
+    checkScrollPosition();
+}
+
+function drawCandle(candle, x, offsetY) {
+    const color = candle.close > candle.open ? 'green' : 'red';
+    ctx.fillStyle = color;
+
+    const openY = canvas.height - candle.open - offsetY;
+    const closeY = canvas.height - candle.close - offsetY;
+    const highY = canvas.height - candle.high - offsetY;
+    const lowY = canvas.height - candle.low - offsetY;
+
+    ctx.fillRect(x, Math.min(openY, closeY), candleWidth * zoomLevel, Math.abs(closeY - openY));
+    ctx.beginPath();
+    ctx.moveTo(x + (candleWidth * zoomLevel) / 2, highY);
+    ctx.lineTo(x + (candleWidth * zoomLevel) / 2, lowY);
+    ctx.strokeStyle = color;
+    ctx.stroke();
+}
+
+canvas.addEventListener('mousedown', (event) => {
+    isDragging = true;
+    dragStartX = event.clientX;
+    dragStartY = event.clientY;
+    scrollStartOffsetX = scrollOffsetX;
+    scrollStartOffsetY = scrollOffsetY;
+});
+
+canvas.addEventListener('mouseup', () => isDragging = false);
+canvas.addEventListener('mouseleave', () => isDragging = false);
+
+document.addEventListener('wheel', (event) => {
+    if (event.ctrlKey) {
+        event.preventDefault();
+        const zoomChange = event.deltaY > 0 ? -0.1 : 0.1;
+        const newZoom = Math.max(0.5, Math.min(5, zoomLevel + zoomChange));
+        const focusPointX = mouseX / (candleWidth + candleGap);
+        const focusPointY = mouseY / 10;
+        scrollOffsetX = scrollOffsetX + (focusPointX * (1 - newZoom / zoomLevel));
+        scrollOffsetY = scrollOffsetY + (focusPointY * (1 - newZoom / zoomLevel));
+        zoomLevel = newZoom;
+        renderChart();
+    } else {
+        scrollOffsetX += event.deltaY > 0 ? 5 : -5;
+        scrollOffsetX = Math.max(0, scrollOffsetX);
+        renderChart();
+    }
+    checkScrollPosition();
+});
+
+loadCandles();
+</script>
+
+<script>
+const indicatorMenu = document.createElement('div');
+indicatorMenu.id = 'indicator-menu';
+indicatorMenu.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
+
+document.body.appendChild(indicatorMenu);
+
+let isMenuOpen = false;
+let verticalLines = [];
+let horizontalLines = [];
+let rectangles = [];
+const menuOptions = document.createElement('div');
+menuOptions.className = 'menu-options';
+
+const addVerticalLine = document.createElement('button');
+addVerticalLine.className = 'menu-button';
+addVerticalLine.textContent = 'Linha Vertical';
+addVerticalLine.onclick = () => {
+    if (verticalLines.length < 5) {
+        const verticalLine = document.createElement('div');
+        verticalLine.style.position = 'absolute';
+        verticalLine.style.width = '1px';
+        verticalLine.style.height = '100%';
+        verticalLine.style.backgroundColor = 'red';
+        verticalLine.style.left = '50%';
+        verticalLine.style.top = '0';
+        verticalLine.style.cursor = 'ew-resize';
+        verticalLine.style.zIndex = '1000';
+        verticalLine.draggable = true;
+        
+        verticalLine.ondrag = (event) => {
+            if (event.clientX) {
+                verticalLine.style.left = `${event.clientX}px`;
+            }
+        };
+        
+        verticalLine.ondblclick = () => {
+            verticalLine.remove();
+            verticalLines = verticalLines.filter(line => line !== verticalLine);
+            addVerticalLine.textContent = `Linha Vertical (${5 - verticalLines.length})`;
+        };
+        
+        document.body.appendChild(verticalLine);
+        verticalLines.push(verticalLine);
+        addVerticalLine.textContent = `Linha Vertical (${5 - verticalLines.length})`;
+    }
+};
+
+const addHorizontalLine = document.createElement('button');
+addHorizontalLine.className = 'menu-button';
+addHorizontalLine.textContent = 'Linha Horizontal';
+addHorizontalLine.onclick = () => {
+    if (horizontalLines.length < 5) {
+        const horizontalLine = document.createElement('div');
+        horizontalLine.style.position = 'absolute';
+        horizontalLine.style.height = '1px';
+        horizontalLine.style.width = '100%';
+        horizontalLine.style.backgroundColor = 'blue';
+        horizontalLine.style.top = '50%';
+        horizontalLine.style.left = '0';
+        horizontalLine.style.cursor = 'ns-resize';
+        horizontalLine.style.zIndex = '1000';
+        horizontalLine.draggable = true;
+        
+        horizontalLine.ondrag = (event) => {
+            if (event.clientY) {
+                horizontalLine.style.top = `${event.clientY}px`;
+            }
+        };
+        
+        horizontalLine.ondblclick = () => {
+            horizontalLine.remove();
+            horizontalLines = horizontalLines.filter(line => line !== horizontalLine);
+            addHorizontalLine.textContent = `Linha Horizontal (${5 - horizontalLines.length})`;
+        };
+        
+        document.body.appendChild(horizontalLine);
+        horizontalLines.push(horizontalLine);
+        addHorizontalLine.textContent = `Linha Horizontal (${5 - horizontalLines.length})`;
+    }
+};
+
+const addRectangle = document.createElement('button');
+addRectangle.className = 'menu-button';
+addRectangle.textContent = 'Retângulo';
+addRectangle.onclick = () => {
+    if (rectangles.length < 5) {
+        const rectangle = document.createElement('div');
+        rectangle.className = 'resizable-rectangle';
+        rectangle.style.width = '150px';
+        rectangle.style.height = '100px';
+        rectangle.style.left = '50%';
+        rectangle.style.top = '50%';
+        
+        const positions = ['nw', 'ne', 'sw', 'se'];
+        positions.forEach(pos => {
+            const handle = document.createElement('div');
+            handle.className = `resize-handle ${pos}`;
+            rectangle.appendChild(handle);
+        });
+
+        let isDragging = false;
+        let isResizing = false;
+        let currentHandle = null;
+        let startX, startY, startWidth, startHeight, startLeft, startTop;
+
+        rectangle.addEventListener('mousedown', (e) => {
+            if (e.target === rectangle) {
+                isDragging = true;
+                startX = e.clientX - rectangle.offsetLeft;
+                startY = e.clientY - rectangle.offsetTop;
+            }
+        });
+
+        rectangle.addEventListener('dblclick', () => {
+            rectangle.remove();
+            rectangles = rectangles.filter(r => r !== rectangle);
+            addRectangle.textContent = `Retângulo (${5 - rectangles.length})`;
+        });
+
+        const handles = rectangle.getElementsByClassName('resize-handle');
+        Array.from(handles).forEach(handle => {
+            handle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                currentHandle = handle;
+                startX = e.clientX;
+                startY = e.clientY;
+                startWidth = parseInt(rectangle.style.width);
+                startHeight = parseInt(rectangle.style.height);
+                startLeft = parseInt(rectangle.style.left);
+                startTop = parseInt(rectangle.style.top);
+                e.stopPropagation();
+            });
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                rectangle.style.left = `${e.clientX - startX}px`;
+                rectangle.style.top = `${e.clientY - startY}px`;
+            } else if (isResizing && currentHandle) {
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                
+                if (currentHandle.classList.contains('se')) {
+                    rectangle.style.width = `${startWidth + dx}px`;
+                    rectangle.style.height = `${startHeight + dy}px`;
+                } else if (currentHandle.classList.contains('sw')) {
+                    rectangle.style.width = `${startWidth - dx}px`;
+                    rectangle.style.height = `${startHeight + dy}px`;
+                    rectangle.style.left = `${startLeft + dx}px`;
+                } else if (currentHandle.classList.contains('ne')) {
+                    rectangle.style.width = `${startWidth + dx}px`;
+                    rectangle.style.height = `${startHeight - dy}px`;
+                    rectangle.style.top = `${startTop + dy}px`;
+                } else if (currentHandle.classList.contains('nw')) {
+                    rectangle.style.width = `${startWidth - dx}px`;
+                    rectangle.style.height = `${startHeight - dy}px`;
+                    rectangle.style.top = `${startTop + dy}px`;
+                    rectangle.style.left = `${startLeft + dx}px`;
+                }
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            isResizing = false;
+            currentHandle = null;
+        });
+
+        document.body.appendChild(rectangle);
+        rectangles.push(rectangle);
+        addRectangle.textContent = `Retângulo (${5 - rectangles.length})`;
+    }
+};
+
+const removeIndicators = document.createElement('button');
+removeIndicators.className = 'menu-button';
+removeIndicators.textContent = 'Remover Indicadores';
+removeIndicators.onclick = () => {
+    verticalLines.forEach(line => line.remove());
+    verticalLines = [];
+    addVerticalLine.textContent = 'Linha Vertical (5)';
+    
+    horizontalLines.forEach(line => line.remove());
+    horizontalLines = [];
+    addHorizontalLine.textContent = 'Linha Horizontal (5)';
+    
+    rectangles.forEach(rect => rect.remove());
+    rectangles = [];
+    addRectangle.textContent = 'Retângulo (5)';
+};
+
+menuOptions.appendChild(addVerticalLine);
+menuOptions.appendChild(addHorizontalLine);
+menuOptions.appendChild(addRectangle);
+menuOptions.appendChild(removeIndicators);
+
+indicatorMenu.onclick = () => {
+    isMenuOpen = !isMenuOpen;
+    menuOptions.style.display = isMenuOpen ? 'flex' : 'none';
+};
+
+document.body.appendChild(menuOptions);
+
+// Initialize button text with available counts
+addVerticalLine.textContent = 'Linha Vertical (5)';
+addHorizontalLine.textContent = 'Linha Horizontal (5)';
+addRectangle.textContent = 'Retângulo (5)';
+</script>
+
+<script>
+const percentageBarContainer = document.createElement('div');
+percentageBarContainer.id = 'percentage-bar-container';
+
+const percentageBar = document.createElement('div');
+percentageBar.id = 'percentage-bar';
+
+const greenPercentLabel = document.createElement('div');
+greenPercentLabel.id = 'green-percentage';
+greenPercentLabel.className = 'percentage-label';
+
+const redPercentLabel = document.createElement('div');
+redPercentLabel.id = 'red-percentage';
+redPercentLabel.className = 'percentage-label';
+
+percentageBarContainer.appendChild(percentageBar);
+percentageBarContainer.appendChild(greenPercentLabel);
+percentageBarContainer.appendChild(redPercentLabel);
+document.body.appendChild(percentageBarContainer);
+
+function updatePercentages() {
+    // Generate random percentage between 30 and 70
+    const greenPercent = 30 + Math.floor(Math.random() * 40);
+    const redPercent = 100 - greenPercent;
+    
+    // Update bar height and color
+    percentageBar.style.height = `${greenPercent}%`;
+    percentageBar.style.backgroundColor = greenPercent >= 50 ? '#4CAF50' : '#FF5252';
+    
+    // Update labels with new position calculation
+    greenPercentLabel.style.top = `${(100 - greenPercent)}%`;
+    redPercentLabel.style.top = '100%';
+    
+    // Update label text
+    greenPercentLabel.textContent = `${greenPercent}%`;
+    redPercentLabel.textContent = `${redPercent}%`;
+    
+    // Update label colors to match the bar
+    greenPercentLabel.style.color = '#4CAF50';
+    redPercentLabel.style.color = '#FF5252';
+}
+
+// Ensure we're updating every 5 seconds
+setInterval(updatePercentages, 5000);
+
+// Initial update
+updatePercentages();
+</script>
+</body>
+</html>
